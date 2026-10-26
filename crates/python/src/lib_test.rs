@@ -59,3 +59,42 @@ fn python_files_are_recognized_by_extension() {
         assert_eq!(registry.language_for_extension(extension).map(|l| l.language.id.as_str()), Some(PYTHON), "{file}");
     }
 }
+
+#[test]
+fn the_extension_declares_that_it_starts_the_interpreter() {
+    assert_eq!(PythonExtension.capabilities(), vec![Capability::ProcessExec]);
+}
+
+#[test]
+fn a_python_project_is_found_by_its_marker_files_and_nothing_compiles() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("pyproject.toml"), "").unwrap();
+    let mut registry = Registry::new();
+    registry.register(Box::new(PythonExtension)).unwrap();
+    let tool = registry.detect_build_tool(dir.path()).expect("pyproject.toml marks a Python project");
+    assert_eq!(tool.id, PYTHON_TOOL);
+    assert!(tool.command(dir.path(), fg_extension::BuildTask::Compile).is_none());
+}
+
+#[test]
+fn the_tool_launches_a_file_through_the_interpreter() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("main.py"), "").unwrap();
+    let mut registry = Registry::new();
+    registry.register(Box::new(PythonExtension)).unwrap();
+    let tool = registry.detect_build_tool(dir.path()).unwrap();
+    let run = RunSpec {
+        entry_point: "main.py".to_string(),
+        ..RunSpec::default()
+    };
+    let launch = tool.run_command(dir.path(), &run).unwrap().unwrap();
+    assert_eq!(launch.args, ["main.py"]);
+}
+
+#[test]
+fn a_main_guard_is_a_run_target_only_for_python() {
+    let source = "if __name__ == \"__main__\":\n    pass\n";
+    let tree = parse(source);
+    assert_eq!(PythonExtension.run_targets(PYTHON, &tree, source, Path::new("a.py")).len(), 1);
+    assert!(PythonExtension.run_targets("java", &tree, source, Path::new("a.py")).is_empty());
+}

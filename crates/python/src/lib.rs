@@ -1,15 +1,24 @@
 //! Python support for FoxGarden, as an extension.
 //!
 //! Contributes the language (`.py`, `.pyi`, `.pyw`) and its tree-sitter grammar
-//! with a highlight query. Nothing else yet: no language server, build tool
-//! or run markers.
+//! with a highlight query, a build tool that runs a file with the project's
+//! interpreter, and a run marker on a file's main guard. No language server
+//! yet.
+
+use std::path::Path;
 
 use fg_extension::{
-    CURRENT_SCHEMA_VERSION, Contributions, Extension, ExtensionManifest, FileIcon, GrammarContribution, GrammarSource, LanguageContribution,
-    LanguageId, NodeKinds,
+    BuildToolContribution, CURRENT_SCHEMA_VERSION, Capability, CommandSpec, Contributions, Extension, ExtensionManifest, FileIcon,
+    GrammarContribution, GrammarSource, LanguageContribution, LanguageId, NodeKinds, RunSpec, RunTarget,
 };
 
+mod main_guard;
+mod run;
+
 pub const PYTHON: &str = "python";
+/// The build tool that runs a Python project: there is nothing to build, so it
+/// only launches files.
+pub const PYTHON_TOOL: &str = "python";
 
 pub struct PythonExtension;
 
@@ -23,8 +32,20 @@ impl Extension for PythonExtension {
         }
     }
 
+    /// The interpreter is a program this extension starts.
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![Capability::ProcessExec]
+    }
+
     fn contributions(&self) -> Contributions {
         Contributions {
+            build_tools: vec![BuildToolContribution {
+                id: PYTHON_TOOL.to_string(),
+                display_name: "Python".to_string(),
+                marker_files: ["pyproject.toml", "requirements.txt", "setup.py", "setup.cfg", "Pipfile", "main.py"]
+                    .map(str::to_string)
+                    .to_vec(),
+            }],
             languages: vec![LanguageContribution {
                 id: LanguageId::from(PYTHON),
                 display_name: "Python".to_string(),
@@ -41,6 +62,14 @@ impl Extension for PythonExtension {
             file_icons: vec![FileIcon { language_id: PYTHON.to_string(), glyph: '\u{e73c}' }],
             ..Contributions::default()
         }
+    }
+
+    fn run_targets(&self, language_id: &str, tree: &tree_sitter::Tree, source: &str, file: &Path) -> Vec<RunTarget> {
+        if language_id == PYTHON { main_guard::main_guard(tree, source, file) } else { Vec::new() }
+    }
+
+    fn run_command(&self, tool_id: &str, project_root: &Path, run: &RunSpec) -> Option<Result<CommandSpec, String>> {
+        (tool_id == PYTHON_TOOL).then(|| Ok(run::command(project_root, run)))
     }
 }
 
