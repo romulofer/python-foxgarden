@@ -12,5 +12,7 @@ path = "src/lib.rs"
 # `foxgarden-kmp`; it must not depend on `fg-core` or `syntax`.
 [dependencies]
 fg-extension = { path = "../../../foxgarden/crates/extension" }
+tree-sitter = "0.26.11"
+tree-sitter-python = "0.25.0"
 
 [dev-dependencies]

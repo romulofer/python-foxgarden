@@ -1,4 +1,30 @@
+use fg_extension::Registry;
+
 use super::*;
+
+const SAMPLE: &str = "import os\n\n\nclass Greeter:\n    def hello(self, name):\n        return f\"hi {name}\"\n";
+
+fn grammar() -> GrammarContribution {
+    PythonExtension.contributions().grammars.remove(0)
+}
+
+fn parse(source: &str) -> tree_sitter::Tree {
+    let GrammarSource::Builtin(language) = grammar().source else { panic!("a builtin grammar") };
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&language.into()).expect("the bundled grammar must load");
+    parser.parse(source, None).expect("parse")
+}
+
+fn kinds(tree: &tree_sitter::Tree) -> Vec<&'static str> {
+    let mut found = Vec::new();
+    let mut stack = vec![tree.root_node()];
+    while let Some(node) = stack.pop() {
+        found.push(node.kind());
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    found
+}
 
 #[test]
 fn the_manifest_names_the_extension() {
@@ -9,8 +35,27 @@ fn the_manifest_names_the_extension() {
 }
 
 #[test]
-fn nothing_is_contributed_yet() {
-    let contributions = PythonExtension.contributions();
-    assert!(contributions.languages.is_empty());
-    assert!(contributions.scaffolds.is_empty());
+fn the_highlight_query_compiles_against_the_grammar() {
+    let GrammarSource::Builtin(language) = grammar().source else { panic!("a builtin grammar") };
+    let query = grammar().highlight_query.expect("a highlight query");
+    tree_sitter::Query::new(&language.into(), &query).expect("the query must compile against its own grammar");
+}
+
+#[test]
+fn every_node_kind_the_editor_is_told_about_exists_in_a_parse() {
+    let found = kinds(&parse(SAMPLE));
+    let node_kinds = grammar().node_kinds;
+    for kind in node_kinds.scopes.iter().chain(&node_kinds.foldable).chain(node_kinds.import.iter()) {
+        assert!(found.contains(&kind.as_str()), "{kind} is not a node of the sample's parse");
+    }
+}
+
+#[test]
+fn python_files_are_recognized_by_extension() {
+    let mut registry = Registry::new();
+    registry.register(Box::new(PythonExtension)).unwrap();
+    for file in ["main.py", "types.pyi", "run.pyw"] {
+        let extension = file.rsplit('.').next().unwrap();
+        assert_eq!(registry.language_for_extension(extension).map(|l| l.language.id.as_str()), Some(PYTHON), "{file}");
+    }
 }
