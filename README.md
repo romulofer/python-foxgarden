@@ -14,7 +14,7 @@ This checkout must sit beside `foxgarden`, which compiles it in.
 | Language | `python` (`.py`, `.pyi`, `.pyw`) and its file icon |
 | Grammar | `tree-sitter-python` with its own highlight query (`queries/highlights_python.scm`, forked unchanged), and the node kinds for sticky scroll, folding and import blocks |
 | Build tool | `python`, found by `pyproject.toml`, `requirements.txt`, `setup.py`, `setup.cfg`, `Pipfile` or `main.py`. There is nothing to compile, so a run launches at once, with the project's `.venv`/`venv` interpreter or `python3` (`python` on Windows), unbuffered so the run panel sees output as it happens |
-| Run marker | A ▶ on a module-level `if __name__ == "__main__":` |
+| Run marker | A ▶ on a module-level `if __name__ == "__main__":`, and on each pytest test (`test_*` functions, `Test*` or `unittest.TestCase` classes and their methods) in a `test_*.py` / `*_test.py` file, run as `python -m pytest <node id>` |
 | Language server | [`jedi-language-server`](https://github.com/pappasam/jedi-language-server) (Jedi behind LSP): completion, hover, go to definition, references, rename, symbols |
 
 The language server is not bundled; install it with
@@ -26,7 +26,7 @@ imports resolve against the packages the project installed.
 
 ## Not here yet
 
-`pytest` markers, run configurations for scripts, a debugger (`debugpy`), a
+A pass/fail summary of pytest runs, run configurations for scripts, a debugger (`debugpy`), a
 virtual-environment picker, a project scaffold and an installer for the language
 server.
 

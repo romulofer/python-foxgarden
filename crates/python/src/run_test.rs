@@ -68,3 +68,12 @@ fn a_working_directory_of_the_run_is_honoured() {
     };
     assert_eq!(command(dir.path(), &run).cwd, PathBuf::from("/elsewhere"));
 }
+
+#[test]
+fn a_test_run_hands_the_node_id_to_pytest_through_the_interpreter() {
+    let dir = tempfile::tempdir().unwrap();
+    let command = test_command(dir.path(), "/p/test_calc.py::TestCalc::test_adds").to_command();
+    let args: Vec<_> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+    assert_eq!(args, ["-m", "pytest", "/p/test_calc.py::TestCalc::test_adds"]);
+    assert_eq!(command.get_current_dir(), Some(dir.path()));
+}

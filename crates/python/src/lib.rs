@@ -2,7 +2,7 @@
 //!
 //! Contributes the language (`.py`, `.pyi`, `.pyw`) and its tree-sitter grammar
 //! with a highlight query, a build tool that runs a file with the project's
-//! interpreter, a run marker on a file's main guard, and Jedi as its language
+//! interpreter, run markers on a file's main guard and on its pytest tests, and Jedi as its language
 //! server.
 
 use std::path::Path;
@@ -15,6 +15,7 @@ use fg_extension::{
 mod main_guard;
 mod run;
 mod server;
+mod test_entry;
 
 pub const PYTHON: &str = "python";
 /// The build tool that runs a Python project: there is nothing to build, so it
@@ -67,7 +68,17 @@ impl Extension for PythonExtension {
     }
 
     fn run_targets(&self, language_id: &str, tree: &tree_sitter::Tree, source: &str, file: &Path) -> Vec<RunTarget> {
-        if language_id == PYTHON { main_guard::main_guard(tree, source, file) } else { Vec::new() }
+        if language_id != PYTHON {
+            return Vec::new();
+        }
+        let mut targets = main_guard::main_guard(tree, source, file);
+        targets.extend(test_entry::test_targets(tree, source, file));
+        targets.sort_by_key(|target| target.line);
+        targets
+    }
+
+    fn test_command(&self, tool_id: &str, project_root: &Path, filter: &str) -> Option<CommandSpec> {
+        (tool_id == PYTHON_TOOL).then(|| run::test_command(project_root, filter))
     }
 
     fn resolve_server_start(&self, server_id: &str, context: &ServerStartContext) -> Option<Result<ResolvedServerStart, String>> {

@@ -98,3 +98,18 @@ fn a_main_guard_is_a_run_target_only_for_python() {
     assert_eq!(PythonExtension.run_targets(PYTHON, &tree, source, Path::new("a.py")).len(), 1);
     assert!(PythonExtension.run_targets("java", &tree, source, Path::new("a.py")).is_empty());
 }
+
+#[test]
+fn a_test_file_gets_pytest_markers_beside_its_main_guard_in_line_order() {
+    let source = "def test_a():
+    pass
+
+
+if __name__ == \"__main__\":\n    test_a()\n";
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&tree_sitter_python::LANGUAGE.into()).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let targets = PythonExtension.run_targets(PYTHON, &tree, source, Path::new("/p/test_a.py"));
+    let kinds: Vec<_> = targets.iter().map(|t| (t.line, t.kind)).collect();
+    assert_eq!(kinds, [(0, fg_extension::RunKind::SingleTest), (4, fg_extension::RunKind::Main)]);
+}

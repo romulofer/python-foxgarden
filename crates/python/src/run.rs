@@ -50,6 +50,15 @@ pub(crate) fn command(project_root: &Path, run: &RunSpec) -> CommandSpec {
     spec
 }
 
+/// The process that runs the tests `node_id` names (a pytest node id: a file,
+/// or `file::Class::test`) through the project's interpreter, which is what
+/// puts the project's own packages on the path.
+pub(crate) fn test_command(project_root: &Path, node_id: &str) -> CommandSpec {
+    CommandSpec::new(interpreter(project_root), project_root.to_path_buf())
+        .args(["-m", "pytest", node_id])
+        .env("PYTHONUNBUFFERED", "1")
+}
+
 #[cfg(test)]
 #[path = "run_test.rs"]
 mod run_test;
