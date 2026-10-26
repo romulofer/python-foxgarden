@@ -2,18 +2,19 @@
 //!
 //! Contributes the language (`.py`, `.pyi`, `.pyw`) and its tree-sitter grammar
 //! with a highlight query, a build tool that runs a file with the project's
-//! interpreter, and a run marker on a file's main guard. No language server
-//! yet.
+//! interpreter, a run marker on a file's main guard, and Jedi as its language
+//! server.
 
 use std::path::Path;
 
 use fg_extension::{
-    BuildToolContribution, CURRENT_SCHEMA_VERSION, Capability, CommandSpec, Contributions, Extension, ExtensionManifest, FileIcon,
+    BuildToolContribution, ResolvedServerStart, ServerStartContext, CURRENT_SCHEMA_VERSION, Capability, CommandSpec, Contributions, Extension, ExtensionManifest, FileIcon,
     GrammarContribution, GrammarSource, LanguageContribution, LanguageId, NodeKinds, RunSpec, RunTarget,
 };
 
 mod main_guard;
 mod run;
+mod server;
 
 pub const PYTHON: &str = "python";
 /// The build tool that runs a Python project: there is nothing to build, so it
@@ -58,6 +59,7 @@ impl Extension for PythonExtension {
                 highlight_query: Some(include_str!("../queries/highlights_python.scm").to_string()),
                 node_kinds: node_kinds(),
             }],
+            language_servers: vec![server::contribution()],
             // The Nerd Fonts devicons Python glyph.
             file_icons: vec![FileIcon { language_id: PYTHON.to_string(), glyph: '\u{e73c}' }],
             ..Contributions::default()
@@ -66,6 +68,10 @@ impl Extension for PythonExtension {
 
     fn run_targets(&self, language_id: &str, tree: &tree_sitter::Tree, source: &str, file: &Path) -> Vec<RunTarget> {
         if language_id == PYTHON { main_guard::main_guard(tree, source, file) } else { Vec::new() }
+    }
+
+    fn resolve_server_start(&self, server_id: &str, context: &ServerStartContext) -> Option<Result<ResolvedServerStart, String>> {
+        (server_id == server::JEDI).then(|| Ok(server::resolve(context)))
     }
 
     fn run_command(&self, tool_id: &str, project_root: &Path, run: &RunSpec) -> Option<Result<CommandSpec, String>> {
